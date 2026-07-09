@@ -1,0 +1,761 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portal Pressure Estimator — Vienna laboratory model</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F3F5F2;
+    --surface:#FFFFFF;
+    --surface-2:#FBFCFB;
+    --ink:#16282C;
+    --ink-soft:#33474B;
+    --muted:#5E6E70;
+    --line:#E1E7E2;
+    --line-strong:#C9D3CD;
+
+    --brand:#0F5560;
+    --brand-deep:#0A3A43;
+    --brand-tint:#E7F0F0;
+
+    --out:#2C7A57;         /* rule-out / below threshold */
+    --out-tint:#E6F2EB;
+    --confirm:#A63B38;     /* above threshold / confirm */
+    --confirm-tint:#F7EBEA;
+    --warn:#9A6707;
+    --warn-tint:#FBF0DA;
+
+    --font-ui:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --font-mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+
+    --radius:18px;
+    --radius-sm:12px;
+    --shadow:0 22px 48px -24px rgba(11,58,67,.35);
+  }
+
+  *{box-sizing:border-box}
+
+  html{-webkit-text-size-adjust:100%}
+
+  body{
+    margin:0;
+    color:var(--ink);
+    font-family:var(--font-ui);
+    font-size:16px;
+    line-height:1.5;
+    background:
+      radial-gradient(120% 90% at 100% 0%, rgba(15,85,96,.07), transparent 60%),
+      var(--paper);
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .wrap{width:min(1120px,calc(100% - 32px));margin:0 auto;padding:28px 0 56px}
+
+  /* ---------- Masthead ---------- */
+  .masthead{display:flex;align-items:center;gap:14px;margin-bottom:20px}
+  .mark{
+    flex:0 0 auto;width:46px;height:46px;border-radius:13px;
+    background:linear-gradient(160deg,var(--brand),var(--brand-deep));
+    display:grid;place-items:center;box-shadow:0 10px 20px -8px rgba(10,58,67,.6);
+  }
+  .mark svg{width:26px;height:26px}
+  .masthead h1{margin:0;font-size:20px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+  .masthead .kicker{
+    margin-top:2px;font-family:var(--font-mono);font-size:11.5px;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--muted)
+  }
+
+  /* ---------- Context banner ---------- */
+  .context{
+    background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--brand);
+    border-radius:var(--radius);padding:16px 18px;margin-bottom:22px;box-shadow:var(--shadow)
+  }
+  .context .lede{display:flex;gap:11px;align-items:baseline}
+  .context .tag{
+    flex:0 0 auto;font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.05em;
+    text-transform:uppercase;color:var(--brand-deep);background:var(--brand-tint);
+    padding:4px 9px;border-radius:999px
+  }
+  .context p{margin:0;color:var(--ink-soft);font-size:14.5px}
+  .context p + p{margin-top:8px}
+  .context .src{color:var(--muted);font-size:12.5px;margin-top:10px}
+
+  /* ---------- Layout ---------- */
+  .grid{display:grid;grid-template-columns:340px 1fr;gap:20px;align-items:start}
+
+  .panel{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);overflow:hidden
+  }
+  .panel > .phead{padding:16px 20px 12px;border-bottom:1px solid var(--line)}
+  .panel > .phead h2{margin:0;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .panel > .pbody{padding:18px 20px 20px}
+
+  /* ---------- Fields ---------- */
+  .field{margin-bottom:15px}
+  .field:last-child{margin-bottom:0}
+  .flabel{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px}
+  .flabel .name{font-size:14px;font-weight:600}
+  .flabel .opt{font-size:11px;font-family:var(--font-mono);color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+
+  .inputrow{display:flex;gap:8px}
+  input[type=number]{
+    width:100%;font-family:var(--font-mono);font-size:17px;color:var(--ink);
+    border:1.5px solid var(--line-strong);border-radius:var(--radius-sm);background:var(--surface);
+    padding:12px 13px;outline:none;transition:border-color .15s, box-shadow .15s;-moz-appearance:textfield
+  }
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  input:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(15,85,96,.14)}
+  input.warnborder{border-color:var(--warn);box-shadow:0 0 0 3px rgba(154,103,7,.12)}
+
+  .unittoggle{display:inline-flex;border:1.5px solid var(--line-strong);border-radius:var(--radius-sm);overflow:hidden;flex:0 0 auto}
+  .unittoggle button{
+    font-family:var(--font-mono);font-size:12px;padding:0 11px;background:var(--surface);color:var(--muted);
+    border:0;cursor:pointer;transition:background .12s,color .12s
+  }
+  .unittoggle button.on{background:var(--brand);color:#fff}
+
+  .hint{margin-top:6px;font-size:12px;line-height:1.4;color:var(--muted);min-height:0}
+  .hint.warn{color:var(--warn)}
+
+  .actions{display:flex;gap:8px;margin-top:18px}
+  .btn{
+    font-family:var(--font-ui);font-size:13.5px;font-weight:600;border-radius:var(--radius-sm);
+    padding:10px 12px;cursor:pointer;border:1.5px solid var(--line-strong);background:var(--surface);color:var(--ink-soft);
+    transition:background .12s,border-color .12s,color .12s
+  }
+  .btn:hover{border-color:var(--brand);color:var(--brand-deep)}
+  .btn.ghost{flex:1}
+  .btn.link{border:0;background:transparent;color:var(--brand-deep);padding:10px 4px;text-decoration:underline;text-underline-offset:3px}
+
+  .privacy{margin-top:16px;padding-top:14px;border-top:1px dashed var(--line-strong);font-size:12px;color:var(--muted);display:flex;gap:8px;align-items:flex-start}
+  .privacy svg{flex:0 0 auto;margin-top:1px}
+
+  /* ---------- Results ---------- */
+  .results{display:flex;flex-direction:column;gap:18px}
+
+  .verdict{
+    border-radius:var(--radius);padding:18px 20px;border:1px solid var(--line);
+    background:var(--surface-2);position:relative;overflow:hidden
+  }
+  .verdict.state-out{background:var(--out-tint);border-color:#BFE0CE}
+  .verdict.state-mixed{background:var(--warn-tint);border-color:#EAD6A6}
+  .verdict.state-confirm{background:var(--confirm-tint);border-color:#E6C4C2}
+  .verdict.state-empty{background:var(--surface-2)}
+  .verdict .vlabel{font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px}
+  .verdict .vtext{font-size:19px;font-weight:700;letter-spacing:-.015em;line-height:1.25}
+  .verdict.state-out .vtext{color:#1f5c40}
+  .verdict.state-mixed .vtext{color:#7a5205}
+  .verdict.state-confirm .vtext{color:#8a2f2d}
+  .verdict .vsub{margin-top:8px;font-size:13.5px;color:var(--ink-soft)}
+
+  .modeltag{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);font-family:var(--font-mono)}
+  .modeltag .dotm{width:8px;height:8px;border-radius:50%;background:var(--brand)}
+
+  .card{border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);overflow:hidden}
+  .card .chead{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:15px 18px 12px}
+  .card .ctitle{font-size:14px;font-weight:600}
+  .card .ctitle .sub{display:block;font-family:var(--font-mono);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-top:3px;font-weight:400}
+
+  .pill{font-family:var(--font-mono);font-size:11.5px;font-weight:600;padding:5px 10px;border-radius:999px;white-space:nowrap}
+  .pill.wait{background:#eef2f0;color:var(--muted)}
+  .pill.below{background:var(--out-tint);color:var(--out)}
+  .pill.above{background:var(--confirm-tint);color:var(--confirm)}
+
+  .cbody{padding:0 18px 16px}
+  .readout{display:flex;align-items:baseline;gap:10px;margin-bottom:2px}
+  .readout .big{font-family:var(--font-mono);font-size:40px;font-weight:600;letter-spacing:-.03em;line-height:1;color:var(--ink)}
+  .readout .big.dim{color:var(--line-strong)}
+  .readout .unitlbl{font-size:13px;color:var(--muted)}
+
+  /* ---------- Signature: threshold gauge ---------- */
+  .gauge{margin:16px 0 6px;position:relative;height:44px}
+  .gtrack{position:absolute;top:16px;left:0;right:0;height:12px;border-radius:999px;overflow:hidden;background:#eef2f0;border:1px solid var(--line)}
+  .gzone-out{position:absolute;top:0;bottom:0;left:0;background:var(--out-tint)}
+  .gzone-confirm{position:absolute;top:0;bottom:0;right:0;background:var(--confirm-tint)}
+  .gthresh{position:absolute;top:8px;bottom:8px;width:0;border-left:2px dashed var(--ink-soft);z-index:3}
+  .gthresh-lbl{position:absolute;top:0;transform:translateX(-50%);font-family:var(--font-mono);font-size:10px;color:var(--ink-soft);white-space:nowrap;z-index:4}
+  .gmarker{position:absolute;top:10px;width:0;height:24px;z-index:5;transition:left .5s cubic-bezier(.22,1,.36,1);opacity:0}
+  .gmarker .stem{position:absolute;top:4px;left:-1.5px;width:3px;height:20px;border-radius:2px;background:var(--brand-deep)}
+  .gmarker .head{position:absolute;top:-2px;left:-7px;width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid var(--brand-deep)}
+  .gmarker.below .stem,.gmarker.below .head{background:#fff;border-color:var(--out)}
+  .gmarker.below .stem{background:var(--out)}
+  .gmarker.above .stem{background:var(--confirm)}
+  .gmarker.above .head{border-color:var(--confirm)}
+  .gends{position:absolute;top:32px;left:0;right:0;display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:10px;color:var(--muted)}
+
+  .interp{margin-top:14px;font-size:13.5px;color:var(--ink-soft);line-height:1.45}
+  .evidence{margin-top:10px;font-family:var(--font-mono);font-size:11.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 14px}
+  .evidence b{color:var(--ink-soft);font-weight:600}
+
+  .hvpgrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-top:1px solid var(--line);background:var(--surface-2)}
+  .hvpgrow .lbl{font-size:13px;color:var(--muted)}
+  .hvpgrow .val{font-family:var(--font-mono);font-size:22px;font-weight:600;letter-spacing:-.02em}
+
+  .rowactions{display:flex;gap:8px;flex-wrap:wrap}
+
+  /* ---------- FIB-4 + optional ---------- */
+  .addon{border:1px dashed var(--line-strong);border-radius:var(--radius);background:var(--surface-2)}
+  .addon summary{list-style:none;cursor:pointer;padding:14px 18px;display:flex;align-items:center;gap:10px;font-size:13.5px;font-weight:600;color:var(--brand-deep)}
+  .addon summary::-webkit-details-marker{display:none}
+  .addon summary .chev{transition:transform .2s;font-family:var(--font-mono)}
+  .addon[open] summary .chev{transform:rotate(90deg)}
+  .addon .abody{padding:4px 18px 18px;border-top:1px solid var(--line)}
+  .addon .agrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}
+  .addon .fib-result{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:14px;border-radius:var(--radius-sm);background:var(--surface);border:1px solid var(--line)}
+  .addon .fib-result .big{font-family:var(--font-mono);font-size:28px;font-weight:600}
+  .addon .anote{font-size:12px;color:var(--muted);margin-top:10px}
+
+  /* ---------- Methods ---------- */
+  .methods{margin-top:22px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
+  .methods summary{list-style:none;cursor:pointer;padding:16px 20px;font-size:14px;font-weight:600;display:flex;align-items:center;gap:10px}
+  .methods summary::-webkit-details-marker{display:none}
+  .methods summary .chev{font-family:var(--font-mono);transition:transform .2s}
+  .methods[open] summary .chev{transform:rotate(90deg)}
+  .methods .mbody{padding:0 20px 22px;color:var(--ink-soft);font-size:13.5px}
+  .methods h3{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:20px 0 8px}
+  .methods code{font-family:var(--font-mono);font-size:12.5px;background:var(--brand-tint);color:var(--brand-deep);padding:2px 6px;border-radius:6px}
+  .formula{font-family:var(--font-mono);font-size:12.5px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-sm);padding:12px 14px;line-height:1.7;overflow-x:auto;white-space:nowrap}
+  table.coef{width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:12px;margin-top:6px}
+  table.coef th,table.coef td{text-align:right;padding:6px 8px;border-bottom:1px solid var(--line)}
+  table.coef th:first-child,table.coef td:first-child{text-align:left}
+  table.coef thead th{color:var(--muted);font-weight:600;border-bottom:1.5px solid var(--line-strong)}
+  .refs{font-size:12.5px;color:var(--muted);line-height:1.55}
+  .refs a{color:var(--brand-deep)}
+  .disclaimer{margin-top:16px;padding:12px 14px;border-radius:var(--radius-sm);background:var(--warn-tint);border:1px solid #EAD6A6;color:#6b4a08;font-size:12.5px;line-height:1.5}
+
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:999px;font-size:13.5px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:50}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  @media (max-width:860px){
+    .grid{grid-template-columns:1fr}
+    .addon .agrid{grid-template-columns:1fr 1fr}
+  }
+  @media (max-width:480px){
+    .readout .big{font-size:34px}
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    .gmarker{transition:none}
+    *{scroll-behavior:auto}
+  }
+
+  @media print{
+    body{background:#fff}
+    .wrap{width:100%}
+    .btn,.actions,.rowactions,.privacy,.addon summary .chev,.toast{display:none !important}
+    .panel,.card,.context,.methods{box-shadow:none;break-inside:avoid}
+    .methods[open] .mbody, details .abody{display:block}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="masthead">
+    <div class="mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M3 15a9 9 0 0 1 18 0" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/>
+        <path d="M12 15 16 9" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/>
+        <circle cx="12" cy="15" r="1.7" fill="#fff"/>
+        <path d="M5.5 15h.01M18.5 15h.01M12 6.4v.01" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div>
+      <h1>Portal Pressure Estimator</h1>
+      <div class="kicker">Vienna laboratory model · CSPH &amp; severe PH · rule-out tool</div>
+    </div>
+  </div>
+
+  <div class="context">
+    <div class="lede">
+      <span class="tag">Read me first</span>
+      <p><b>Use this as a rule-out tool, not a diagnosis.</b> The Vienna models were built in European cohorts with high portal-hypertension prevalence. In the first US external validation, they <b>systematically overestimated risk</b> — so a high probability usually overstates the true likelihood.</p>
+    </div>
+    <p>Their strength is exclusion: a below-threshold result — especially for severe PH — is reliable (validation NPV ≈ 0.95). Treat an above-threshold result as a prompt to confirm with HVPG, not as a final answer. This tool never replaces HVPG measurement.</p>
+    <div class="src">Sources: Reiniš et&nbsp;al., <i>J&nbsp;Hepatol</i> 2023;78:390–400 (model) · Mohammed et&nbsp;al., <i>Dig&nbsp;Dis&nbsp;Sci</i> 2026 (US validation, n = 143).</div>
+  </div>
+
+  <div class="grid">
+
+    <!-- ============ INPUTS ============ -->
+    <aside class="panel">
+      <div class="phead"><h2>Patient labs</h2></div>
+      <div class="pbody">
+
+        <div class="field">
+          <div class="flabel"><span class="name">Platelet count</span><span class="opt">10⁹/L = K/µL</span></div>
+          <div class="inputrow"><input id="plt" type="number" inputmode="decimal" step="1" min="0" placeholder="e.g. 95"></div>
+          <div class="hint" id="hint-plt"></div>
+        </div>
+
+        <div class="field">
+          <div class="flabel"><span class="name">Total bilirubin</span></div>
+          <div class="inputrow">
+            <input id="bili" type="number" inputmode="decimal" step="0.1" min="0" placeholder="e.g. 1.8">
+            <div class="unittoggle" role="group" aria-label="Bilirubin units">
+              <button type="button" id="bili-mgdl" class="on">mg/dL</button>
+              <button type="button" id="bili-umol">µmol/L</button>
+            </div>
+          </div>
+          <div class="hint" id="hint-bili"></div>
+        </div>
+
+        <div class="field">
+          <div class="flabel"><span class="name">INR</span><span class="opt">unitless</span></div>
+          <div class="inputrow"><input id="inr" type="number" inputmode="decimal" step="0.1" min="0" placeholder="e.g. 1.4"></div>
+          <div class="hint" id="hint-inr"></div>
+        </div>
+
+        <div class="field">
+          <div class="flabel"><span class="name">Liver stiffness (LSM)</span><span class="opt">kPa · optional</span></div>
+          <div class="inputrow"><input id="lsm" type="number" inputmode="decimal" step="0.1" min="0" placeholder="VCTE, if available"></div>
+          <div class="hint" id="hint-lsm">Adds the LSM-enhanced model, which discriminates severe PH better.</div>
+        </div>
+
+        <div class="actions">
+          <button type="button" class="btn ghost" id="btn-example">Load example</button>
+          <button type="button" class="btn ghost" id="btn-clear">Clear</button>
+        </div>
+
+        <div class="privacy">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2 4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6l-8-4Z" stroke="#5E6E70" stroke-width="1.6" stroke-linejoin="round"/></svg>
+          <span>Everything runs in your browser. No patient data is stored or sent anywhere.</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ============ RESULTS ============ -->
+    <main class="results">
+
+      <div class="verdict state-empty" id="verdict">
+        <div class="vlabel">Clinical read</div>
+        <div class="vtext" id="verdict-text">Enter platelets, bilirubin, and INR to begin.</div>
+        <div class="vsub" id="verdict-sub"></div>
+      </div>
+
+      <div class="modeltag"><span class="dotm"></span><span id="model-tag">Active model: 3P (platelets · bilirubin · INR)</span></div>
+
+      <!-- CSPH card -->
+      <div class="card">
+        <div class="chead">
+          <div class="ctitle">Clinically significant PH<span class="sub">HVPG ≥ 10 mmHg</span></div>
+          <span class="pill wait" id="pill10">Awaiting labs</span>
+        </div>
+        <div class="cbody">
+          <div class="readout"><span class="big dim" id="p10">—</span><span class="unitlbl" id="p10lbl">probability</span></div>
+          <div class="gauge" id="gauge10">
+            <div class="gtrack">
+              <div class="gzone-out" id="z10out"></div>
+              <div class="gzone-confirm" id="z10conf"></div>
+            </div>
+            <div class="gthresh" id="t10"></div>
+            <div class="gthresh-lbl" id="t10lbl"></div>
+            <div class="gmarker" id="m10"><div class="stem"></div><div class="head"></div></div>
+            <div class="gends"><span>0%</span><span>100%</span></div>
+          </div>
+          <div class="interp" id="interp10">Predicted probability of clinically significant portal hypertension.</div>
+          <div class="evidence"><span><b>US validation:</b></span><span>NPV 0.80</span><span>PPV 0.53</span><span>AUROC 0.71</span></div>
+        </div>
+      </div>
+
+      <!-- Severe PH card -->
+      <div class="card">
+        <div class="chead">
+          <div class="ctitle">Severe portal hypertension<span class="sub">HVPG ≥ 16 mmHg</span></div>
+          <span class="pill wait" id="pill16">Awaiting labs</span>
+        </div>
+        <div class="cbody">
+          <div class="readout"><span class="big dim" id="p16">—</span><span class="unitlbl" id="p16lbl">probability</span></div>
+          <div class="gauge" id="gauge16">
+            <div class="gtrack">
+              <div class="gzone-out" id="z16out"></div>
+              <div class="gzone-confirm" id="z16conf"></div>
+            </div>
+            <div class="gthresh" id="t16"></div>
+            <div class="gthresh-lbl" id="t16lbl"></div>
+            <div class="gmarker" id="m16"><div class="stem"></div><div class="head"></div></div>
+            <div class="gends"><span>0%</span><span>100%</span></div>
+          </div>
+          <div class="interp" id="interp16">Predicted probability of severe portal hypertension.</div>
+          <div class="evidence"><span><b>US validation:</b></span><span>NPV 0.95</span><span>PPV 0.31</span><span>AUROC 0.77</span></div>
+        </div>
+        <div class="hvpgrow">
+          <span class="lbl">Predicted HVPG <span style="color:var(--muted);font-size:12px">(regression estimate)</span></span>
+          <span class="val" id="hvpg">—</span>
+        </div>
+      </div>
+
+      <div class="rowactions">
+        <button type="button" class="btn" id="btn-copy">Copy summary for note</button>
+        <button type="button" class="btn" id="btn-print">Print</button>
+      </div>
+
+      <!-- FIB-4 + albumin optional cross-check -->
+      <details class="addon" id="fibbox">
+        <summary><span class="chev">▸</span> Add FIB‑4 + albumin cross‑check (CSPH only)</summary>
+        <div class="abody">
+          <p style="font-size:13px;color:var(--ink-soft);margin:12px 0 0">A second, independent lab model for CSPH from the same validation study. Platelets are reused from above.</p>
+          <div class="agrid">
+            <div class="field" style="margin:0">
+              <div class="flabel"><span class="name">Age</span><span class="opt">years</span></div>
+              <input id="age" type="number" inputmode="decimal" step="1" min="0" placeholder="e.g. 58">
+            </div>
+            <div class="field" style="margin:0">
+              <div class="flabel"><span class="name">Albumin</span><span class="opt">g/dL</span></div>
+              <input id="alb" type="number" inputmode="decimal" step="0.1" min="0" placeholder="e.g. 3.6">
+            </div>
+            <div class="field" style="margin:0">
+              <div class="flabel"><span class="name">AST</span><span class="opt">U/L</span></div>
+              <input id="ast" type="number" inputmode="decimal" step="1" min="0" placeholder="e.g. 55">
+            </div>
+            <div class="field" style="margin:0">
+              <div class="flabel"><span class="name">ALT</span><span class="opt">U/L</span></div>
+              <input id="alt" type="number" inputmode="decimal" step="1" min="0" placeholder="e.g. 40">
+            </div>
+          </div>
+          <div class="fib-result">
+            <div>
+              <div style="font-size:12px;color:var(--muted);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.04em">CSPH probability · HVPG ≥10</div>
+              <div class="interp" id="fibinterp" style="margin-top:6px">Fill age, albumin, AST, ALT (and platelets above).</div>
+            </div>
+            <div style="text-align:right">
+              <div class="big" id="fibp">—</div>
+              <span class="pill wait" id="fibpill" style="margin-top:6px;display:inline-block">—</span>
+            </div>
+          </div>
+          <div class="anote">FIB‑4 = (age × AST) / (platelets × √ALT). Model: logodds = 0.7207 − 0.6729·albumin + 0.4408·FIB‑4. Decision threshold 0.68 (validation Youden; NPV 0.80, PPV 0.63).</div>
+        </div>
+      </details>
+
+    </main>
+  </div>
+
+  <!-- ============ METHODS ============ -->
+  <details class="methods">
+    <summary><span class="chev">▸</span> Model details, coefficients &amp; references</summary>
+    <div class="mbody">
+
+      <h3>How the estimate is made</h3>
+      <p>Probabilities come from the published Vienna logistic models. With a liver stiffness value entered, the calculator switches to the LSM‑enhanced coefficient set (a separate model, not the 3P result plus an adjustment).</p>
+      <div class="formula">
+        p = 1 / (1 + e<sup>−x</sup>)<br>
+        3P:&nbsp;&nbsp;&nbsp;&nbsp;x = β₀ + β<sub>PLT</sub>·PLT + β<sub>BILI</sub>·bilirubin + β<sub>INR</sub>·INR<br>
+        3P+LSM:&nbsp;x = above + β<sub>LSM</sub>·LSM<br>
+        Units — PLT: 10⁹/L · bilirubin: mg/dL · INR: unitless · LSM: kPa
+      </div>
+
+      <h3>Decision thresholds</h3>
+      <p>The gauge marks each model's published Youden‑optimal cut‑off: a reading left of the line favours ruling the condition <i>out</i>; right of the line means it cannot be excluded. In the US cohort the models over‑predicted, so weigh above‑threshold results against that.</p>
+
+      <h3>Coefficients (Vienna, Table S5)</h3>
+      <table class="coef">
+        <thead><tr><th>Term</th><th>3P ≥10</th><th>3P ≥16</th><th>+LSM ≥10</th><th>+LSM ≥16</th></tr></thead>
+        <tbody>
+          <tr><td>Intercept</td><td>−1.3682</td><td>−2.0152</td><td>−1.5526</td><td>−2.1685</td></tr>
+          <tr><td>Platelets</td><td>−0.009306</td><td>−0.010163</td><td>−0.012479</td><td>−0.015050</td></tr>
+          <tr><td>Bilirubin</td><td>0.378559</td><td>0.116590</td><td>0.484583</td><td>0.227967</td></tr>
+          <tr><td>INR</td><td>2.556866</td><td>1.946251</td><td>1.347533</td><td>1.032043</td></tr>
+          <tr><td>LSM</td><td>—</td><td>—</td><td>0.081547</td><td>0.056162</td></tr>
+          <tr><td>Threshold</td><td>0.663</td><td>0.332</td><td>0.648</td><td>0.292</td></tr>
+        </tbody>
+      </table>
+      <p style="margin-top:10px">Predicted HVPG uses the Lasso regression terms (3P: 13.0609, −0.030378, 0.667001, 2.627117; +LSM: 10.8949, −0.029723, 0.685411, 0.923888, 0.1433).</p>
+
+      <h3>References</h3>
+      <p class="refs">
+        1. Reiniš J, Petrenko O, Simbrunner B, et&nbsp;al. Assessment of portal hypertension severity using machine learning models in patients with compensated cirrhosis. <i>J Hepatol</i> 2023;78:390–400. Online calculator: <a href="https://liver.at/vlsg/HVPG-Calculator/" target="_blank" rel="noopener">liver.at/vlsg/HVPG‑Calculator</a><br>
+        2. Mohammed FS, Xing M, Mohnasky M, et&nbsp;al. External validation of laboratory‑based models to assess portal hypertension severity in compensated chronic liver disease. <i>Dig Dis Sci</i> 2026.
+      </p>
+
+      <div class="disclaimer"><b>Clinical use.</b> This is decision support, not a diagnostic device. It has not been prospectively validated or recalibrated for US/MASLD‑predominant populations. Interpret alongside the full clinical picture and confirm with HVPG where management depends on it.</div>
+    </div>
+  </details>
+
+</div>
+
+<div class="toast" id="toast">Copied</div>
+
+<script>
+"use strict";
+
+const C = {
+  "3p10":  {i:-1.368246, plt:-0.009306, bili:0.378559, inr:2.556866, thr:0.663008},
+  "3p16":  {i:-2.015195, plt:-0.010163, bili:0.116590, inr:1.946251, thr:0.332467},
+  "3plin": {i:13.060925, plt:-0.030378, bili:0.667001, inr:2.627117},
+  "lsm10": {i:-1.552564, plt:-0.012479, bili:0.484583, inr:1.347533, lsm:0.081547, thr:0.647888},
+  "lsm16": {i:-2.168549, plt:-0.015050, bili:0.227967, inr:1.032043, lsm:0.056162, thr:0.292439},
+  "lsmlin":{i:10.894861, plt:-0.029723, bili:0.685411, inr:0.923888, lsm:0.143300}
+};
+const FIB = {i:0.7207, alb:-0.6729, fib4:0.4408, thr:0.68};
+
+const $ = id => document.getElementById(id);
+const sigmoid = x => 1/(1+Math.exp(-x));
+const clamp = (v,a,b) => Math.min(b,Math.max(a,v));
+
+let biliUnit = "mgdl"; // or "umol"
+
+function num(id){
+  const raw = $(id).value.trim();
+  if(raw==="") return null;
+  const v = Number(raw);
+  return Number.isFinite(v) ? v : null;
+}
+
+// bilirubin always returned in mg/dL for the model
+function biliMgDl(){
+  const v = num("bili");
+  if(v===null) return null;
+  return biliUnit==="umol" ? v/17.104 : v;
+}
+
+function logit3(coef, plt, bili, inr, lsm){
+  let x = coef.i + coef.plt*plt + coef.bili*bili + coef.inr*inr;
+  if(typeof coef.lsm==="number" && lsm!==null) x += coef.lsm*lsm;
+  return x;
+}
+function linEst(coef, plt, bili, inr, lsm){
+  let y = coef.i + coef.plt*plt + coef.bili*bili + coef.inr*inr;
+  if(typeof coef.lsm==="number" && lsm!==null) y += coef.lsm*lsm;
+  return y;
+}
+
+// ---- plausibility hints (non-blocking) ----
+function setHint(id, inputId, msg){
+  const h = $(id), inp = $(inputId);
+  if(msg){ h.textContent = msg; h.classList.add("warn"); inp.classList.add("warnborder"); }
+  else{ h.textContent = ""; h.classList.remove("warn"); inp.classList.remove("warnborder"); }
+}
+function checkPlausibility(plt, bili, inr, lsm){
+  setHint("hint-plt","plt",
+    plt===null ? "" :
+    plt<=0 ? "Must be greater than 0." :
+    plt>600 ? "Unusually high — check the value." :
+    plt<10 ? "Very low — confirm this is correct." : "");
+  setHint("hint-bili","bili",
+    bili===null ? "" :
+    bili<0 ? "Cannot be negative." :
+    (biliUnit==="mgdl" && bili>25) ? "Very high for mg/dL — is this µmol/L?" :
+    (biliUnit==="umol" && bili<3 && bili>0) ? "Low for µmol/L — is this mg/dL?" : "");
+  setHint("hint-inr","inr",
+    inr===null ? "" :
+    inr<=0 ? "Must be greater than 0." :
+    inr<0.8 ? "Below normal — check the value." :
+    inr>4 ? "Very high — confirm this is correct." : "");
+  const lh = $("hint-lsm");
+  if(lsm!==null && lsm<=0){ lh.textContent="Must be greater than 0."; lh.classList.add("warn"); $("lsm").classList.add("warnborder"); }
+  else{ lh.textContent="Adds the LSM-enhanced model, which discriminates severe PH better."; lh.classList.remove("warn"); $("lsm").classList.remove("warnborder"); }
+}
+
+// ---- gauge rendering ----
+function drawGauge(idPrefix, prob, thr){
+  const tPct = clamp(thr*100,0,100);
+  $("z"+idPrefix+"out").style.width = tPct+"%";
+  $("z"+idPrefix+"conf").style.width = (100-tPct)+"%";
+  $("t"+idPrefix).style.left = tPct+"%";
+  const lbl = $("t"+idPrefix+"lbl");
+  lbl.textContent = "thr "+Math.round(tPct)+"%";
+  lbl.style.left = clamp(tPct,7,93)+"%";
+  const m = $("m"+idPrefix);
+  if(prob===null){ m.style.opacity=0; return; }
+  m.style.opacity=1;
+  m.style.left = clamp(prob*100,0,100)+"%";
+  m.classList.toggle("above", prob>=thr);
+  m.classList.toggle("below", prob<thr);
+}
+
+let last = null; // store latest computed state for copy
+
+function compute(){
+  const plt = num("plt");
+  const biliRaw = num("bili");
+  const bili = biliMgDl();
+  const inr = num("inr");
+  const lsm = num("lsm");
+
+  checkPlausibility(plt, biliRaw, inr, lsm);
+  computeFib(plt);
+
+  const ready = plt!==null && bili!==null && inr!==null && plt>0 && bili>=0 && inr>0 && !(lsm!==null && lsm<=0);
+  const useLsm = lsm!==null && lsm>0;
+
+  if(!ready){
+    resetOutputs();
+    last = null;
+    return;
+  }
+
+  const k10 = useLsm ? C.lsm10 : C["3p10"];
+  const k16 = useLsm ? C.lsm16 : C["3p16"];
+  const klin = useLsm ? C.lsmlin : C["3plin"];
+
+  const p10 = sigmoid(logit3(k10, plt, bili, inr, lsm));
+  const p16 = sigmoid(logit3(k16, plt, bili, inr, lsm));
+  const hv  = linEst(klin, plt, bili, inr, lsm);
+
+  const modelName = useLsm ? "3P + LSM (platelets · bilirubin · INR · kPa)" : "3P (platelets · bilirubin · INR)";
+  $("model-tag").textContent = "Active model: " + modelName;
+
+  // readouts
+  renderCard("10", p10, k10.thr,
+    p10>=k10.thr
+      ? "CSPH cannot be excluded. Because the model over-predicts, treat this as a flag rather than a diagnosis."
+      : "Low predicted probability of clinically significant portal hypertension.");
+  renderCard("16", p16, k16.thr,
+    p16>=k16.thr
+      ? "Possible severe PH — confirm with HVPG before acting on it."
+      : "Severe portal hypertension is unlikely. A below-threshold read here is the model's most reliable use.");
+
+  $("hvpg").textContent = hv.toFixed(1) + " mmHg";
+
+  renderVerdict(p10, k10.thr, p16, k16.thr);
+
+  last = {plt, biliRaw, biliUnit, biliMg:bili, inr, lsm:useLsm?lsm:null, p10, p16, hv, t10:k10.thr, t16:k16.thr, modelName};
+}
+
+function renderCard(sfx, prob, thr, interpText){
+  const big = $("p"+sfx);
+  big.textContent = Math.round(prob*100) + "%";
+  big.classList.remove("dim");
+  $("p"+sfx+"lbl").textContent = "probability";
+  const pill = $("pill"+sfx);
+  if(prob>=thr){ pill.textContent = "Above threshold"; pill.className = "pill above"; }
+  else{ pill.textContent = "Below threshold"; pill.className = "pill below"; }
+  drawGauge(sfx, prob, thr);
+  $("interp"+sfx).textContent = interpText;
+}
+
+function renderVerdict(p10, t10, p16, t16){
+  const v = $("verdict"), vt = $("verdict-text"), vs = $("verdict-sub");
+  const csph = p10>=t10, severe = p16>=t16;
+  v.className = "verdict";
+  if(severe){
+    v.classList.add("state-confirm");
+    vt.textContent = "Findings consistent with severe portal hypertension.";
+    vs.textContent = "The model over-predicts risk, so this is a prompt to confirm with HVPG — not a diagnosis.";
+  }else if(csph){
+    v.classList.add("state-mixed");
+    vt.textContent = "CSPH cannot be excluded; severe PH appears unlikely.";
+    vs.textContent = "Above the CSPH cut-off but below the severe-PH cut-off. Interpret the positive read cautiously.";
+  }else{
+    v.classList.add("state-out");
+    vt.textContent = "Low likelihood of clinically significant portal hypertension.";
+    vs.textContent = "Both readings sit in the rule-out zone — the setting where these models perform best.";
+  }
+}
+
+function resetOutputs(){
+  ["10","16"].forEach(sfx=>{
+    const big=$("p"+sfx); big.textContent="—"; big.classList.add("dim");
+    $("p"+sfx+"lbl").textContent="probability";
+    const pill=$("pill"+sfx); pill.textContent="Awaiting labs"; pill.className="pill wait";
+    $("m"+sfx).style.opacity=0;
+    drawGauge(sfx, null, sfx==="10"?C["3p10"].thr:C["3p16"].thr);
+  });
+  $("interp10").textContent="Predicted probability of clinically significant portal hypertension.";
+  $("interp16").textContent="Predicted probability of severe portal hypertension.";
+  $("hvpg").textContent="—";
+  $("model-tag").textContent="Active model: 3P (platelets · bilirubin · INR)";
+  const v=$("verdict"); v.className="verdict state-empty";
+  $("verdict-text").textContent="Enter platelets, bilirubin, and INR to begin.";
+  $("verdict-sub").textContent="";
+}
+
+// ---- FIB-4 + albumin ----
+function computeFib(plt){
+  const age=num("age"), alb=num("alb"), ast=num("ast"), alt=num("alt");
+  const big=$("fibp"), pill=$("fibpill"), interp=$("fibinterp");
+  if(plt===null||age===null||alb===null||ast===null||alt===null||plt<=0||alt<=0){
+    big.textContent="—"; pill.textContent="—"; pill.className="pill wait";
+    interp.textContent="Fill age, albumin, AST, ALT (and platelets above).";
+    return null;
+  }
+  const fib4 = (age*ast)/(plt*Math.sqrt(alt));
+  const p = sigmoid(FIB.i + FIB.alb*alb + FIB.fib4*fib4);
+  big.textContent = Math.round(p*100)+"%";
+  if(p>=FIB.thr){ pill.textContent="Above threshold"; pill.className="pill above";
+    interp.textContent="CSPH cannot be excluded (FIB‑4 "+fib4.toFixed(2)+"). Cross-check against the Vienna result above."; }
+  else{ pill.textContent="Below threshold"; pill.className="pill below";
+    interp.textContent="Low predicted CSPH probability (FIB‑4 "+fib4.toFixed(2)+")."; }
+  return p;
+}
+
+// ---- unit toggle ----
+function setBiliUnit(u){
+  if(u===biliUnit) return;
+  const v = num("bili");
+  biliUnit = u;
+  $("bili-mgdl").classList.toggle("on", u==="mgdl");
+  $("bili-umol").classList.toggle("on", u==="umol");
+  // convert the displayed value so the same clinical value is kept
+  if(v!==null){
+    const converted = u==="umol" ? v*17.104 : v/17.104;
+    $("bili").value = (Math.round(converted*100)/100);
+  }
+  $("bili").placeholder = u==="umol" ? "e.g. 31" : "e.g. 1.8";
+  compute();
+}
+
+// ---- copy summary ----
+function copySummary(){
+  if(!last){ toast("Enter labs first"); return; }
+  const b = last.biliUnit==="umol"
+      ? (Math.round(last.biliMg*17.104*10)/10)+" µmol/L"
+      : last.biliMg.toFixed(1)+" mg/dL";
+  const lines = [];
+  lines.push("Portal-pressure estimate — Vienna "+(last.lsm!==null?"3P+LSM":"3P")+" laboratory model");
+  lines.push("Inputs: platelets "+last.plt+" ×10⁹/L, total bilirubin "+b+", INR "+last.inr+(last.lsm!==null?(", LSM "+last.lsm+" kPa"):""));
+  lines.push("• CSPH (HVPG ≥10 mmHg): "+Math.round(last.p10*100)+"% — "+(last.p10>=last.t10?"above":"below")+" model threshold ("+Math.round(last.t10*100)+"%)");
+  lines.push("• Severe PH (HVPG ≥16 mmHg): "+Math.round(last.p16*100)+"% — "+(last.p16>=last.t16?"above":"below")+" model threshold ("+Math.round(last.t16*100)+"%)");
+  lines.push("• Predicted HVPG ~"+last.hv.toFixed(1)+" mmHg");
+  lines.push("Note: lab-based estimate; model over-predicts risk in US validation (strong rule-out, weak rule-in). Not a substitute for HVPG.");
+  const text = lines.join("\n");
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(()=>toast("Summary copied"), ()=>fallbackCopy(text));
+  } else fallbackCopy(text);
+}
+function fallbackCopy(text){
+  const ta=document.createElement("textarea"); ta.value=text;
+  ta.style.position="fixed"; ta.style.opacity="0"; document.body.appendChild(ta);
+  ta.select(); try{document.execCommand("copy"); toast("Summary copied");}catch(e){toast("Copy failed — select manually");}
+  document.body.removeChild(ta);
+}
+let toastTimer;
+function toast(msg){
+  const t=$("toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("show"),1800);
+}
+
+// ---- example / clear ----
+function loadExample(){
+  biliUnit="mgdl"; $("bili-mgdl").classList.add("on"); $("bili-umol").classList.remove("on");
+  $("plt").value="95"; $("bili").value="1.8"; $("inr").value="1.4"; $("lsm").value="24";
+  compute();
+}
+function clearAll(){
+  ["plt","bili","inr","lsm","age","alb","ast","alt"].forEach(id=>$(id).value="");
+  ["plt","bili","inr","lsm"].forEach(id=>$(id).classList.remove("warnborder"));
+  ["hint-plt","hint-bili","hint-inr"].forEach(id=>{$(id).textContent="";$(id).classList.remove("warn");});
+  compute();
+}
+
+// ---- wire up ----
+["plt","bili","inr","lsm","age","alb","ast","alt"].forEach(id=>$(id).addEventListener("input", compute));
+$("bili-mgdl").addEventListener("click",()=>setBiliUnit("mgdl"));
+$("bili-umol").addEventListener("click",()=>setBiliUnit("umol"));
+$("btn-example").addEventListener("click", loadExample);
+$("btn-clear").addEventListener("click", clearAll);
+$("btn-copy").addEventListener("click", copySummary);
+$("btn-print").addEventListener("click", ()=>window.print());
+
+// init gauges in empty state
+drawGauge("10", null, C["3p10"].thr);
+drawGauge("16", null, C["3p16"].thr);
+</script>
+</body>
+</html>
