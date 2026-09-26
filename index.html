@@ -2,39 +2,54 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Portal Pressure Estimator — Vienna laboratory model</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Probability of clinically significant and severe portal hypertension from platelets, bilirubin, and INR (Vienna models), with liver stiffness if available.">
+<title>Portal Hypertension Predictor | Mohammad Almeqdadi, MD</title>
+<meta name="theme-color" content="#f5f1ea" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e0d11" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="/assets/icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
+<link rel="preload" href="/assets/fonts/fraunces-var.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/geist-var.woff2" as="font" type="font/woff2" crossorigin>
+<!-- shared look, served by the homepage (qaddodi/qaddodi.github.io: assets/tool.css) -->
+<link rel="stylesheet" href="/assets/tool.css">
+<script>
+  /* apply the saved theme (shared with the homepage) before first paint */
+  try { var t = localStorage.getItem("qd:theme"); if (t === '"light"' || t === '"dark"') document.documentElement.dataset.theme = JSON.parse(t); } catch (e) {}
+</script>
+<script src="/assets/tool.js" defer></script>
 <style>
+  /* Tool-specific layout on top of /assets/tool.css (shared with the homepage).
+     The original variable names are kept and pointed at the shared palette:
+     brand = calculator amber, rule-out = bile-duct green, confirm = hepatic-artery red. */
   :root{
-    --paper:#F3F5F2;
-    --surface:#FFFFFF;
-    --surface-2:#FBFCFB;
-    --ink:#16282C;
-    --ink-soft:#33474B;
-    --muted:#5E6E70;
-    --line:#E1E7E2;
-    --line-strong:#C9D3CD;
+    --paper:var(--qd-bg);
+    --surface:var(--qd-surface);
+    --surface-2:var(--qd-surface-2);
+    --ink:var(--qd-ink);
+    --ink-soft:var(--qd-ink-2);
+    --muted:var(--qd-muted);
+    --line:var(--qd-line);
+    --line-strong:var(--qd-line-2);
 
-    --brand:#0F5560;
-    --brand-deep:#0A3A43;
-    --brand-tint:#E7F0F0;
+    --brand:var(--qd-amber);
+    --brand-deep:var(--qd-amber-ink);
+    --brand-tint:var(--qd-amber-bg);
 
-    --out:#2C7A57;         /* rule-out / below threshold */
-    --out-tint:#E6F2EB;
-    --confirm:#A63B38;     /* above threshold / confirm */
-    --confirm-tint:#F7EBEA;
-    --warn:#9A6707;
-    --warn-tint:#FBF0DA;
+    --out:var(--qd-green-ink);         /* rule-out / below threshold */
+    --out-tint:var(--qd-green-bg);
+    --confirm:var(--qd-crimson-ink);   /* above threshold / confirm */
+    --confirm-tint:var(--qd-crimson-bg);
+    --warn:var(--qd-amber-ink);
+    --warn-tint:var(--qd-amber-bg);
 
-    --font-ui:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    --font-mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --font-ui:var(--qd-sans);
+    --font-mono:var(--qd-mono);
 
-    --radius:18px;
+    --radius:var(--qd-r-lg);
     --radius-sm:12px;
-    --shadow:0 22px 48px -24px rgba(11,58,67,.35);
+    --shadow:var(--qd-shadow-1);
   }
 
   *{box-sizing:border-box}
@@ -47,27 +62,10 @@
     font-family:var(--font-ui);
     font-size:16px;
     line-height:1.5;
-    background:
-      radial-gradient(120% 90% at 100% 0%, rgba(15,85,96,.07), transparent 60%),
-      var(--paper);
     -webkit-font-smoothing:antialiased;
   }
 
-  .wrap{width:min(1120px,calc(100% - 32px));margin:0 auto;padding:28px 0 56px}
-
-  /* ---------- Masthead ---------- */
-  .masthead{display:flex;align-items:center;gap:14px;margin-bottom:20px}
-  .mark{
-    flex:0 0 auto;width:46px;height:46px;border-radius:13px;
-    background:linear-gradient(160deg,var(--brand),var(--brand-deep));
-    display:grid;place-items:center;box-shadow:0 10px 20px -8px rgba(10,58,67,.6);
-  }
-  .mark svg{width:26px;height:26px}
-  .masthead h1{margin:0;font-size:20px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
-  .masthead .kicker{
-    margin-top:2px;font-family:var(--font-mono);font-size:11.5px;letter-spacing:.06em;
-    text-transform:uppercase;color:var(--muted)
-  }
+  .wrap{width:min(100% - 2 * var(--qd-pad),var(--qd-wide));margin:0 auto;padding:0}
 
   /* ---------- Context banner ---------- */
   .context{
@@ -232,12 +230,50 @@
   .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:999px;font-size:13.5px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:50}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
+
+  /* ---------- Shared-theme overrides for colors that were fixed values ---------- */
+  input[type=number]{background:var(--surface)}
+  input:focus{box-shadow:0 0 0 4px color-mix(in srgb,var(--brand) 22%,transparent)}
+  input.warnborder{box-shadow:0 0 0 3px color-mix(in srgb,var(--warn) 18%,transparent)}
+  .unittoggle button.on{color:var(--qd-amber-on)}
+  .btn{border-radius:999px;border-width:1px;padding:10px 16px}
+  .btn:hover{border-color:var(--ink);color:var(--ink)}
+  #btn-copy{background:var(--brand);border-color:var(--brand);color:var(--qd-amber-on)}
+  .privacy svg path{stroke:var(--muted)}
+  .context{border-left-color:var(--brand)}
+  .context .tag{color:var(--brand-deep)}
+  .verdict.state-out{border-color:color-mix(in srgb,var(--qd-green) 35%,var(--line))}
+  .verdict.state-mixed{border-color:color-mix(in srgb,var(--qd-amber) 40%,var(--line))}
+  .verdict.state-confirm{border-color:color-mix(in srgb,var(--qd-crimson) 35%,var(--line))}
+  .verdict .vtext{font-family:var(--qd-display);font-size:1.6rem;font-weight:440;font-variation-settings:"opsz" 72,"SOFT" 50;letter-spacing:-.02em;line-height:1.15}
+  .verdict.state-out .vtext{color:var(--qd-green-ink)}
+  .verdict.state-mixed .vtext{color:var(--qd-amber-ink)}
+  .verdict.state-confirm .vtext{color:var(--qd-crimson-ink)}
+  .card .ctitle{font-family:var(--qd-display);font-size:1.3rem;font-weight:440;font-variation-settings:"opsz" 48,"SOFT" 40;letter-spacing:-.01em}
+  .card .ctitle .sub{font-family:var(--font-mono)}
+  .readout .big{font-family:var(--qd-display);font-size:3rem;font-weight:400;font-variation-settings:"opsz" 144}
+  .pill.wait{background:var(--surface-2);color:var(--muted)}
+  .gtrack{background:var(--surface-2)}
+  .gmarker .head{background:var(--surface)}
+  .gmarker.below .stem,.gmarker.below .head{background:var(--surface)}
+  .gmarker.below .stem{background:var(--out)}
+  .addon summary{color:var(--brand-deep)}
+  .methods code{background:var(--brand-tint);color:var(--brand-deep)}
+  .disclaimer{border-color:color-mix(in srgb,var(--qd-amber) 35%,var(--line));color:var(--qd-amber-ink)}
+  .toast{background:var(--ink);color:var(--paper)}
+  .qd-head .context{margin-top:22px;margin-bottom:0}
+  @media (min-width:861px){ .grid > .panel{position:sticky;top:calc(var(--qd-head-h) + 16px)} }
+
   @media (max-width:860px){
     .grid{grid-template-columns:1fr}
     .addon .agrid{grid-template-columns:1fr 1fr}
   }
+  @media (max-width:560px){
+    .context .lede{display:block}
+    .context .tag{display:inline-block;margin-bottom:8px}
+  }
   @media (max-width:480px){
-    .readout .big{font-size:34px}
+    .readout .big{font-size:2.4rem}
   }
 
   @media (prefers-reduced-motion:reduce){
@@ -254,24 +290,29 @@
   }
 </style>
 </head>
-<body>
-<div class="wrap">
-
-  <div class="masthead">
-    <div class="mark" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M3 15a9 9 0 0 1 18 0" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/>
-        <path d="M12 15 16 9" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/>
-        <circle cx="12" cy="15" r="1.7" fill="#fff"/>
-        <path d="M5.5 15h.01M18.5 15h.01M12 6.4v.01" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/>
-      </svg>
-    </div>
-    <div>
-      <h1>Portal Pressure Estimator</h1>
-      <div class="kicker">Vienna laboratory model · CSPH &amp; severe PH · rule-out tool</div>
+<body class="qd">
+<a class="qd-skip" href="#main">Skip to the calculator</a>
+<header class="qd-top">
+  <div class="qd-top-inner">
+    <a class="qd-brand" href="/" aria-label="Mohammad Almeqdadi, MD: all tools"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path class="m-hex" d="M27.50 16.00 L21.75 25.96 L10.25 25.96 L4.50 16.00 L10.25 6.04 L21.75 6.04Z"/><path class="m-sin" d="M16 16L27.50 16.00M16 16L10.25 25.96M16 16L10.25 6.04"/><circle class="m-pv" cx="27.50" cy="16.00" r="2.6"/><circle class="m-ha" cx="21.75" cy="25.96" r="2.6"/><circle class="m-bd" cx="10.25" cy="25.96" r="2.6"/><circle class="m-pv" cx="4.50" cy="16.00" r="2.6"/><circle class="m-ha" cx="10.25" cy="6.04" r="2.6"/><circle class="m-bd" cx="21.75" cy="6.04" r="2.6"/><circle class="m-cv" cx="16" cy="16" r="3.4"/></svg><span class="qd-brand-name">Almeqdadi<span class="qd-brand-md">MD</span></span></a>
+    <a class="qd-crumb" href="/?type=calculator#tools"><span class="dot" aria-hidden="true"></span>Calculators</a>
+    <div class="qd-top-tools">
+      <button class="qd-icon-btn" type="button" data-qd-theme aria-label="Color theme: automatic">
+        <svg class="i-auto" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="6.5"/><path d="M10 3.5a6.5 6.5 0 0 1 0 13z" fill="currentColor" stroke="none"/></svg>
+        <svg class="i-light" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="3.6"/><path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.3 4.3l1.4 1.4M14.3 14.3l1.4 1.4M4.3 15.7l1.4-1.4M14.3 5.7l1.4-1.4"/></svg>
+        <svg class="i-dark" viewBox="0 0 20 20" aria-hidden="true"><path d="M16.5 12.2A7 7 0 0 1 7.8 3.5a7 7 0 1 0 8.7 8.7z"/></svg>
+      </button>
+      <a class="qd-all" href="/#tools"><span aria-hidden="true">&larr;</span> All tools</a>
     </div>
   </div>
+</header>
 
+<div class="wrap">
+
+  <header class="qd-head" style="width:auto;padding-bottom:22px">
+    <p class="qd-eyebrow"><span class="dot" aria-hidden="true"></span>Calculator &middot; Vienna laboratory model</p>
+    <h1 class="qd-title">Portal Hypertension <em>Predictor</em></h1>
+    <p class="qd-lede">Probability of clinically significant and severe portal hypertension from platelets, bilirubin, and INR, with liver stiffness if you have it.</p>
   <div class="context">
     <div class="lede">
       <span class="tag">Read me first</span>
@@ -280,8 +321,9 @@
     <p>Their strength is exclusion: a below-threshold result — especially for severe PH — is reliable (validation NPV ≈ 0.95). Treat an above-threshold result as a prompt to confirm with HVPG, not as a final answer. This tool never replaces HVPG measurement.</p>
     <div class="src">Sources: Reiniš et&nbsp;al., <i>J&nbsp;Hepatol</i> 2023;78:390–400 (model) · Mohammed et&nbsp;al., <i>Dig&nbsp;Dis&nbsp;Sci</i> 2026 (US validation, n = 143).</div>
   </div>
+  </header>
 
-  <div class="grid">
+  <div class="grid" id="main">
 
     <!-- ============ INPUTS ============ -->
     <aside class="panel">
@@ -478,6 +520,17 @@
   </details>
 
 </div>
+
+<footer class="qd-foot">
+  <div class="qd-foot-inner">
+    <p>Educational tool. Not medical advice. Interpret results alongside the source publications and clinical judgment. Everything runs in your browser; nothing is sent anywhere.</p>
+    <nav class="qd-foot-links" aria-label="More">
+      <a href="/#tools">All tools</a>
+      <a href="https://github.com/qaddodi/portal-hypertension-predictor" target="_blank" rel="noopener noreferrer">Source</a>
+      <span>&copy; 2026 Mohammad Almeqdadi, MD</span>
+    </nav>
+  </div>
+</footer>
 
 <div class="toast" id="toast">Copied</div>
 
